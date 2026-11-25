@@ -1,0 +1,10 @@
+{
+  "name": "little-ledger",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "../little-ledger",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}
