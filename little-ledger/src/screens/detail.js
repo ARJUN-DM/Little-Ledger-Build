@@ -1,8 +1,15 @@
-import { esc } from '../ui.js';
+import { accountLabel, partnerAccountOf, typeLabel } from '../store.js';
+import { esc, growsBalance, signed } from '../ui.js';
 import { formatDate, formatMoney, toISO } from '../format.js';
 
 export function renderDetail(transaction, { confirming = false, backLabel = 'Ledger' } = {}) {
-  const income = transaction.type === 'income';
+  const partner = partnerAccountOf(transaction);
+  const positive = growsBalance(transaction);
+  const stamp = transaction.type === 'income'
+    ? 'Received'
+    : transaction.type === 'payment'
+      ? 'Paid in'
+      : 'Paid';
 
   return `
     <header class="topbar">
@@ -10,21 +17,31 @@ export function renderDetail(transaction, { confirming = false, backLabel = 'Led
       <span class="eyebrow">Folio ${esc(transaction.id.slice(-6))}</span>
     </header>
 
-    <p class="eyebrow">${income ? 'Income' : 'Expense'} &middot; ${esc(transaction.category)}</p>
-    <p class="detail-amount num">${income ? '+' : '\u2212'}${formatMoney(transaction.amount)}</p>
-    <span class="detail-stamp">${income ? 'Received' : 'Paid'}</span>
+    <p class="eyebrow">${esc(accountLabel(transaction.account))} &middot; ${esc(typeLabel(transaction.type))} &middot; ${esc(transaction.category)}</p>
+    <p class="detail-amount num">${signed(transaction.amount, positive)}</p>
+    <span class="detail-stamp">${stamp}</span>
 
     <dl class="detail-rows">
       <div><dt>Date</dt><dd class="num">${esc(formatDate(transaction.date))}</dd></div>
-      <div><dt>Type</dt><dd>${income ? 'Income' : 'Expense'}</dd></div>
+      <div><dt>Account</dt><dd>${esc(accountLabel(transaction.account))}</dd></div>
+      <div><dt>Type</dt><dd>${esc(typeLabel(transaction.type))}</dd></div>
       <div><dt>Category</dt><dd>${esc(transaction.category)}</dd></div>
       <div><dt>Note</dt><dd>${transaction.note ? esc(transaction.note) : '\u2014'}</dd></div>
       <div><dt>Recorded</dt><dd class="num">${esc(formatDate(toISO(new Date(transaction.createdAt))))}</dd></div>
     </dl>
 
+    ${partner ? `
+      <p class="linked-note">
+        Linked to the ${esc(accountLabel(partner))} account. Editing the amount, date or note here
+        updates both sides; deleting removes both.
+      </p>
+    ` : ''}
+
     ${confirming ? `
       <div class="confirm">
-        <p>Delete this entry? The ledger totals update immediately.</p>
+        <p>${partner
+          ? `Delete this entry? It also removes the matching ${esc(formatMoney(transaction.amount))} entry in ${esc(accountLabel(partner))}.`
+          : 'Delete this entry? The ledger totals update immediately.'}</p>
         <div class="row">
           <button type="button" class="btn btn-danger" data-action="delete-confirm" data-id="${esc(transaction.id)}">Delete</button>
           <button type="button" class="btn" data-action="delete-cancel">Cancel</button>

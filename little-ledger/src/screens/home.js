@@ -1,12 +1,66 @@
-import { summarize } from '../store.js';
+import { accountLabel, summarize } from '../store.js';
 import { esc, entryRow } from '../ui.js';
 import { currentMonthKey, formatMoney, formatMonth, monthKeyOf } from '../format.js';
 import { ledgerTitle } from './welcome.js';
 
-export function renderHome(list, { showNotice = false, name = '' } = {}) {
+/** What is left in the account, or what the card owes. Never resets by month. */
+function balanceCard(account, allTotals, monthTotals, creditLimit) {
+  if (account === 'credit') {
+    const owed = allTotals.owed;
+    const over = creditLimit > 0 && owed > creditLimit;
+    const remaining = creditLimit - owed;
+    return `
+      <section class="balance-card">
+        <span class="stamp">Credit</span>
+        <p class="eyebrow">${owed < 0 ? 'In credit' : 'Amount owed'}</p>
+        <p class="balance-value num">${owed < 0 ? '\\u2212' : ''}${formatMoney(owed)}</p>
+        <div class="balance-split">
+          <div>
+            <span class="split-label">${creditLimit ? 'Limit remaining' : 'Limit'}</span>
+            <span class="split-value num">${creditLimit
+              ? `${over ? '\\u2212' : ''}${formatMoney(remaining)}`
+              : 'Not set'}</span>
+          </div>
+          <div>
+            <span class="split-label">This month spent</span>
+            <span class="split-value num">${monthTotals.expense ? '\\u2212' : ''}${formatMoney(monthTotals.expense)}</span>
+          </div>
+        </div>
+        ${over ? `<p class="limit-warn">Over the limit by ${formatMoney(owed - creditLimit)}.</p>` : ''}
+        ${creditLimit ? '' : '<p class="limit-warn"><button type="button" class="link" data-action="open-settings">Set a limit in Settings</button></p>'}
+      </section>
+    `;
+  }
+
+  return `
+    <section class="balance-card">
+      <span class="stamp">Balance</span>
+      <p class="eyebrow">All time &middot; ${esc(accountLabel(account))}</p>
+      <p class="balance-value num">${allTotals.balance < 0 ? '\\u2212' : ''}${formatMoney(allTotals.balance)}</p>
+      <div class="balance-split">
+        <div>
+          <span class="split-label">Income &middot; this month</span>
+          <span class="split-value num">${monthTotals.income ? '+' : ''}${formatMoney(monthTotals.income)}</span>
+        </div>
+        <div>
+          <span class="split-label">Expenses &middot; this month</span>
+          <span class="split-value num">${monthTotals.expense ? '\\u2212' : ''}${formatMoney(monthTotals.expense)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+export function renderHome(list, {
+  account = 'debit',
+  showNotice = false,
+  name = '',
+  creditLimit = 0,
+} = {}) {
   const monthKey = currentMonthKey();
   const monthEntries = list.filter((item) => monthKeyOf(item.date) === monthKey);
-  const { income, expense, balance } = summarize(monthEntries);
+  const monthTotals = summarize(monthEntries);
+  const allTotals = summarize(list);
   const recent = list.slice(0, 5);
 
   return `
@@ -15,21 +69,7 @@ export function renderHome(list, { showNotice = false, name = '' } = {}) {
       <h1 class="ledger-title${name ? ' ledger-title--name' : ''}">${esc(ledgerTitle(name))}</h1>
     </header>
 
-    <section class="balance-card">
-      <span class="stamp">Balance</span>
-      <p class="eyebrow">This month</p>
-      <p class="balance-value num">${balance < 0 ? '\u2212' : ''}${formatMoney(balance)}</p>
-      <div class="balance-split">
-        <div>
-          <span class="split-label">Income</span>
-          <span class="split-value num">${income ? '+' : ''}${formatMoney(income)}</span>
-        </div>
-        <div>
-          <span class="split-label">Expenses</span>
-          <span class="split-value num">${expense ? '\u2212' : ''}${formatMoney(expense)}</span>
-        </div>
-      </div>
-    </section>
+    ${balanceCard(account, allTotals, monthTotals, creditLimit)}
 
     <button type="button" class="btn btn-primary btn-block" data-action="add">Add transaction</button>
 
@@ -42,7 +82,7 @@ export function renderHome(list, { showNotice = false, name = '' } = {}) {
 
     <section>
       <div class="section-head">
-        <h2 class="section-title">Recent entries</h2>
+        <h2 class="section-title">Recent ${esc(accountLabel(account))} entries</h2>
         <button type="button" class="link" data-action="tab" data-tab="transactions">View all</button>
       </div>
       <ul class="entries">

@@ -1,5 +1,5 @@
 /* Little Ledger service worker — caches the app shell so the installed app opens offline. */
-const CACHE = 'little-ledger-shell-v10';
+const CACHE = 'little-ledger-shell-v11';
 
 const SHELL = [
   './',
@@ -15,6 +15,8 @@ const SHELL = [
   './src/storage.js',
   './src/format.js',
   './src/ui.js',
+  './src/ledger.js',
+  './src/filterSheet.js',
   './src/screens/home.js',
   './src/screens/transactions.js',
   './src/screens/months.js',

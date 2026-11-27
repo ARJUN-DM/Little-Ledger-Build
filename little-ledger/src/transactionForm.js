@@ -1,4 +1,4 @@
-import { CATEGORIES, store } from './store.js';
+import { accountTypes, categoriesFor, store, typeLabel } from './store.js';
 import { esc } from './ui.js';
 import { todayISO } from './format.js';
 
@@ -66,9 +66,9 @@ function onClick(event) {
 }
 
 function setType(type) {
-  if (state.draft.type === type) return;
+  if (state.draft.type === type || state.locked) return;
   state.draft.type = type;
-  const options = CATEGORIES[type];
+  const options = state.draft.categoriesByType[type] || [];
   if (!options.includes(state.draft.category)) state.draft.category = options[0];
   state.error = '';
   paint();
@@ -83,16 +83,25 @@ function save() {
     return;
   }
 
-  const payload = {
-    amount: Math.round(amount * 100) / 100,
-    type: state.draft.type,
-    category: state.draft.category,
-    date: state.draft.date || todayISO(),
-    note: state.draft.note.trim(),
-  };
+  if (state.locked) {
+    store.update(state.id, {
+      amount: Math.round(amount * 100) / 100,
+      date: state.draft.date || todayISO(),
+      note: state.draft.note.trim(),
+    });
+  } else {
+    const payload = {
+      account: state.draft.account,
+      amount: Math.round(amount * 100) / 100,
+      type: state.draft.type,
+      category: state.draft.category,
+      date: state.draft.date || todayISO(),
+      note: state.draft.note.trim(),
+    };
 
-  if (state.mode === 'edit') store.update(state.id, payload);
-  else store.add(payload);
+    if (state.mode === 'edit') store.update(state.id, payload);
+    else store.add(payload);
+  }
 
   const done = state.onDone;
   closeSheet();
@@ -115,26 +124,53 @@ function focusAmount(delay = 0) {
   else focus();
 }
 
+/** Why the entry moves money to another account, in plain words. */
+function transferHint(draft) {
+  if (draft.account !== 'debit') return '';
+  if (draft.type === 'withdrawn') {
+    return `<p class="sheet-hint">Debited from the Debit card and added to the Cash balance.</p>`;
+  }
+  if (draft.type === 'expense' && draft.category === 'Credit bill') {
+    return `<p class="sheet-hint">Paid from the Debit card and applied to the Credit card bill.</p>`;
+  }
+  return '';
+}
+
 function view() {
   const draft = state.draft;
   const isEdit = state.mode === 'edit';
-  const chips = CATEGORIES[draft.type].map((category) => `
+  const accountName = draft.account === 'credit' ? 'Credit card' : draft.account === 'cash' ? 'Cash' : 'Debit card';
+
+  const typeButtons = draft.types.map((type) => `
+    <button type="button" class="seg-btn${draft.type === type ? ' is-active' : ''}"
+      data-action="sheet-type" data-type="${esc(type)}"${state.locked ? ' disabled' : ''}>${esc(typeLabel(type))}</button>
+  `).join('');
+
+  const chips = draft.categoriesByType[draft.type] ? draft.categoriesByType[draft.type].map((category) => `
     <button
       type="button"
       class="chip${category === draft.category ? ' is-active' : ''}"
       data-action="sheet-cat"
       data-category="${esc(category)}"
+      ${state.locked ? 'disabled' : ''}
     >${esc(category)}</button>
-  `).join('');
+  `).join('') : '';
 
   return `
     <div class="sheet-head">
       <div>
-        <p class="eyebrow">${isEdit ? 'Edit entry' : 'New entry'}</p>
+        <p class="eyebrow">${esc(accountName)} &middot; ${isEdit ? 'Edit entry' : 'New entry'}</p>
         <h2 class="sheet-title">${isEdit ? 'Amend the ledger' : 'Record a transaction'}</h2>
       </div>
       <button type="button" class="sheet-close" data-action="sheet-close" aria-label="Close">&times;</button>
     </div>
+
+    ${state.locked ? `
+      <p class="sheet-hint">
+        This is the matching side of a transfer. Amount, date and note stay in step with the other
+        account; type and category are fixed by that transfer.
+      </p>
+    ` : ''}
 
     <div class="field">
       <label class="field-label" for="f-amount">Amount</label>
@@ -146,18 +182,16 @@ function view() {
 
     <div class="field">
       <span class="field-label">Type</span>
-      <div class="seg" role="group" aria-label="Transaction type">
-        <button type="button" class="seg-btn${draft.type === 'expense' ? ' is-active' : ''}"
-          data-action="sheet-type" data-type="expense">Expense</button>
-        <button type="button" class="seg-btn${draft.type === 'income' ? ' is-active' : ''}"
-          data-action="sheet-type" data-type="income">Income</button>
-      </div>
+      <div class="seg" role="group" aria-label="Transaction type">${typeButtons}</div>
     </div>
 
     <div class="field">
       <span class="field-label">Category</span>
       <div class="chips">${chips}</div>
+      ${state.locked ? `<p class="sheet-hint">${esc(draft.category)}</p>` : ''}
     </div>
+
+    ${transferHint(draft)}
 
     <div class="field">
       <label class="field-label" for="f-date">Date</label>
@@ -181,20 +215,31 @@ function view() {
   `;
 }
 
-export function openSheet({ mode = 'create', transaction = null, onDone = null } = {}) {
+export function openSheet({ mode = 'create', transaction = null, account = 'debit', onDone = null } = {}) {
   if (!sheetEl) build();
+
+  const target = transaction ? transaction.account : account;
+  const locked = Boolean(transaction && transaction.role === 'mirror' && transaction.linkId);
+  const types = accountTypes(target);
+  const firstType = transaction ? transaction.type : types[0];
 
   state = {
     mode,
     id: transaction ? transaction.id : null,
     onDone,
+    locked,
     error: '',
     draft: {
+      account: target,
       amount: transaction ? String(transaction.amount) : '',
-      type: transaction ? transaction.type : 'expense',
-      category: transaction ? transaction.category : CATEGORIES.expense[0],
+      type: firstType,
+      category: transaction ? transaction.category : categoriesFor(target, firstType)[0],
       date: transaction ? transaction.date : todayISO(),
       note: transaction ? (transaction.note || '') : '',
+      types,
+      categoriesByType: Object.fromEntries(
+        types.map((type) => [type, categoriesFor(target, type)]),
+      ),
     },
   };
 

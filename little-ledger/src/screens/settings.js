@@ -1,6 +1,5 @@
 import { summarize } from '../store.js';
-import { esc } from '../ui.js';
-import { formatMoney } from '../format.js';
+import { esc, summaryCards } from '../ui.js';
 import { ledgerTitle } from './welcome.js';
 
 /** Backup, CSV export and restore — the screen that makes the ledger portable. */
@@ -10,8 +9,9 @@ export function renderSettings(list, {
   error = '',
   nameDraft = '',
   nameError = '',
+  creditLimit = 0,
 } = {}) {
-  const { income, expense } = summarize(list);
+  const totals = summarize(list);
 
   return `
     <header class="topbar">
@@ -23,23 +23,12 @@ export function renderSettings(list, {
     <h1 class="ledger-title">Settings</h1>
 
     <section class="summary">
-      <div class="summary-item">
-        <span class="split-label">Entries</span>
-        <span class="split-value num">${list.length}</span>
-      </div>
-      <div class="summary-item">
-        <span class="split-label">Income</span>
-        <span class="split-value num">${income ? '+' : ''}${formatMoney(income)}</span>
-      </div>
-      <div class="summary-item">
-        <span class="split-label">Expenses</span>
-        <span class="split-value num">${expense ? '\u2212' : ''}${formatMoney(expense)}</span>
-      </div>
+      ${summaryCards(totals, 'debit')}
     </section>
 
     <p class="settings-note">
       Entries live in this browser, on this device. Clearing site data or uninstalling the app erases them,
-      so keep a backup somewhere else.
+      so keep a backup somewhere else. Totals above cover every account.
     </p>
 
     <div class="settings-group">
@@ -62,10 +51,26 @@ export function renderSettings(list, {
     </div>
 
     <div class="settings-group">
+      <h2 class="section-title">Credit card</h2>
+      <label class="field-label" for="s-limit">Card limit</label>
+      <input
+        id="s-limit"
+        class="settings-input num"
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        placeholder="0.00"
+        value="${creditLimit ? esc(creditLimit.toFixed(2)) : ''}"
+      />
+      <button type="button" class="btn btn-block" data-action="save-limit">Save limit</button>
+      <p class="settings-hint">Used to show how much of the card is left. Leave it empty to hide the remaining figure.</p>
+    </div>
+
+    <div class="settings-group">
       <h2 class="section-title">Back up</h2>
       <button type="button" class="btn btn-block" data-action="export-json">Download backup (.json)</button>
       <button type="button" class="btn btn-block" data-action="export-csv">Export as CSV</button>
-      <p class="settings-hint">The .json file restores everything, notes included. The CSV opens in Sheets or Excel.</p>
+      <p class="settings-hint">The .json file restores everything, all three accounts and notes included. The CSV opens in Sheets or Excel.</p>
     </div>
 
     <div class="settings-group">
@@ -78,7 +83,7 @@ export function renderSettings(list, {
           <p>
             Found <strong>${pending.count}</strong> ${pending.count === 1 ? 'entry' : 'entries'}
             in <strong>${esc(pending.name)}</strong>. Merge keeps what you already have;
-            replace overwrites the whole ledger.
+            replace overwrites every account.
           </p>
           <div class="row">
             <button type="button" class="btn btn-primary" data-action="import-merge">Merge</button>

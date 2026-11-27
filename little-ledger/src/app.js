@@ -1,5 +1,6 @@
 import { Storage } from './storage.js';
-import { store } from './store.js';
+import { ACCOUNT_IDS, accountLabel, store } from './store.js';
+import { emptyFilters } from './ledger.js';
 import { renderHome } from './screens/home.js';
 import { renderTransactions } from './screens/transactions.js';
 import { renderMonths, renderMonth } from './screens/months.js';
@@ -8,10 +9,12 @@ import { renderSettings } from './screens/settings.js';
 import { cleanName, ledgerTitle, needsWelcome, renderWelcome } from './screens/welcome.js';
 import { renderInstall } from './screens/install.js';
 import { openSheet } from './transactionForm.js';
+import { openFilterSheet } from './filterSheet.js';
 import { backupFilename, buildBackup, csvFilename, parseBackup, saveTextFile, toCSV } from './backup.js';
 
 const screenEl = document.getElementById('screen');
 const tabbarEl = document.getElementById('tabbar');
+const accountsEl = document.getElementById('accounts');
 
 const TABS = [
   { id: 'home', label: 'Home' },
@@ -20,6 +23,7 @@ const TABS = [
 ];
 
 const NAME_KEY = 'name';
+const ACCOUNT_KEY = 'account';
 /** Set when the browser reports a finished install, so a reinstall asks again. */
 const FRESH_KEY = 'fresh-install';
 
@@ -38,6 +42,16 @@ function isIOS() {
 
 const savedName = Storage.get(NAME_KEY);
 let name = typeof savedName === 'string' ? cleanName(savedName) : '';
+
+const savedAccount = Storage.get(ACCOUNT_KEY);
+let account = ACCOUNT_IDS.includes(savedAccount) ? savedAccount : 'debit';
+
+/** Chosen in the Months tab; never saved, so a relaunch starts on All years. */
+let year = 'all';
+
+/** Filters live in memory only: leaving the app resets them. One set per screen. */
+let filters = { transactions: emptyFilters(), month: emptyFilters() };
+
 let welcome = { error: '', draft: '' };
 let install = { message: '', canPrompt: false };
 let deferredInstall = null;
@@ -75,11 +89,40 @@ function tabsHTML(active) {
   `).join('');
 }
 
+/** The pinned Debit / Credit / Cash switcher, on every screen that has a ledger. */
+function renderAccounts() {
+  const hidden = route.name === 'welcome' || route.name === 'install';
+  accountsEl.hidden = hidden;
+  if (hidden) {
+    accountsEl.innerHTML = '';
+    return;
+  }
+
+  accountsEl.innerHTML = `
+    <div class="accounts" role="group" aria-label="Account">
+      ${ACCOUNT_IDS.map((id) => `
+        <button
+          type="button"
+          class="account${id === account ? ' is-active' : ''}"
+          data-action="account"
+          data-account="${id}"
+          aria-pressed="${id === account ? 'true' : 'false'}"
+        >${accountLabel(id)}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function filterKey() {
+  return `${JSON.stringify(filters.transactions)}${JSON.stringify(filters.month)}`;
+}
+
 function render() {
-  const list = store.all();
-  const key = `${route.name}:${route.id || route.month || ''}`;
+  const list = store.forAccount(account);
+  const key = `${route.name}:${route.id || route.month || ''}:${account}:${year}:${filterKey()}`;
 
   screenEl.classList.toggle('screen--bleed', route.name === 'welcome' || route.name === 'install');
+  renderAccounts();
 
   if (route.name === 'welcome') {
     screenEl.innerHTML = renderWelcome(welcome);
@@ -99,17 +142,30 @@ function render() {
     });
     tabbarEl.hidden = true;
   } else if (route.name === 'month') {
-    screenEl.innerHTML = renderMonth(list, route.month);
+    screenEl.innerHTML = renderMonth({
+      list,
+      account,
+      monthKey: route.month,
+      filters: filters.month,
+    });
     tabbarEl.hidden = true;
   } else if (route.name === 'settings') {
-    screenEl.innerHTML = renderSettings(list, settings);
+    screenEl.innerHTML = renderSettings(store.all(), {
+      ...settings,
+      creditLimit: store.creditLimit(),
+    });
     tabbarEl.hidden = true;
   } else {
     screenEl.innerHTML = route.name === 'home'
-      ? renderHome(list, { showNotice: !noticeDismissed, name: isInstalled() ? name : '' })
+      ? renderHome(list, {
+        account,
+        showNotice: !noticeDismissed,
+        name: isInstalled() ? name : '',
+        creditLimit: store.creditLimit(),
+      })
       : route.name === 'months'
-        ? renderMonths(list)
-        : renderTransactions(list);
+        ? renderMonths({ list, account, year })
+        : renderTransactions({ list, account, filters: filters.transactions });
     tabbarEl.hidden = false;
     tabbarEl.innerHTML = tabsHTML(route.name);
   }
@@ -189,13 +245,25 @@ function saveName() {
   render();
 }
 
+function saveLimit() {
+  const field = document.getElementById('s-limit');
+  const raw = field ? String(field.value).replace(/,/g, '') : '';
+  const value = Number.parseFloat(raw);
+  store.setCreditLimit(Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : 0);
+  settings.message = store.creditLimit()
+    ? 'Credit limit saved.'
+    : 'Credit limit cleared.';
+  settings.error = '';
+  render();
+}
+
 /** Say so when the browser blocks localStorage, instead of losing entries silently. */
 function mountStorageNotice() {
   if (Storage.available) return;
   const notice = document.createElement('p');
   notice.className = 'storage-notice';
   notice.setAttribute('role', 'status');
-  notice.textContent = 'Private mode — entries last for this session only';
+  notice.textContent = 'Private mode \u2014 entries last for this session only';
   document.body.appendChild(notice);
 }
 
@@ -203,7 +271,9 @@ function mountStorageNotice() {
 async function exportLedger(kind) {
   const csv = kind === 'csv';
   const filename = csv ? csvFilename() : backupFilename();
-  const text = csv ? toCSV(store.all()) : JSON.stringify(buildBackup(store.all()), null, 2);
+  const text = csv
+    ? toCSV(store.all())
+    : JSON.stringify(buildBackup(store.all(), { creditLimit: store.creditLimit() }), null, 2);
 
   try {
     const outcome = await saveTextFile(filename, text, csv ? 'text/csv' : 'application/json');
@@ -239,8 +309,38 @@ document.addEventListener('click', async (event) => {
     case 'tab':
       if (route.name !== 'detail' && route.name !== 'month') go({ name: target.dataset.tab });
       break;
+    case 'account': {
+      const next = target.dataset.account;
+      if (!ACCOUNT_IDS.includes(next) || next === account) break;
+      account = next;
+      Storage.set(ACCOUNT_KEY, account);
+      // Categories, years and filters belong to one account.
+      filters = { transactions: emptyFilters(), month: emptyFilters() };
+      year = 'all';
+      render();
+      break;
+    }
+    case 'filter-open': {
+      const screen = route.name === 'month' ? 'month' : 'transactions';
+      openFilterSheet({
+        account,
+        entries: store.forAccount(account),
+        filters: filters[screen],
+        onApply: (next) => {
+          filters[screen] = next;
+          render();
+        },
+      });
+      break;
+    }
+    case 'filter-clear': {
+      const screen = route.name === 'month' ? 'month' : 'transactions';
+      filters[screen] = emptyFilters();
+      render();
+      break;
+    }
     case 'add':
-      openSheet({ mode: 'create', onDone: render });
+      openSheet({ mode: 'create', account, onDone: render });
       break;
     case 'open': {
       const from = route.name === 'detail' ? route.back : route;
@@ -277,6 +377,9 @@ document.addEventListener('click', async (event) => {
     case 'save-name':
       saveSettingsName();
       break;
+    case 'save-limit':
+      saveLimit();
+      break;
     case 'dismiss-notice':
       noticeDismissed = true;
       Storage.set('notice-dismissed', true);
@@ -298,6 +401,7 @@ document.addEventListener('click', async (event) => {
       const pending = settings.pending;
       settings.pending = null;
       const { added, updated } = store.mergeAll(pending.transactions);
+      if (pending.creditLimit > 0) store.setCreditLimit(pending.creditLimit);
       settings.error = '';
       settings.message = `Merged: ${added} new ${added === 1 ? 'entry' : 'entries'}${updated ? `, ${updated} updated` : ''}.`;
       render();
@@ -306,6 +410,7 @@ document.addEventListener('click', async (event) => {
     case 'import-replace': {
       if (!settings.pending) break;
       const count = store.replaceAll(settings.pending.transactions);
+      if (settings.pending.creditLimit > 0) store.setCreditLimit(settings.pending.creditLimit);
       settings.pending = null;
       settings.error = '';
       settings.message = `Ledger replaced with ${count} ${count === 1 ? 'entry' : 'entries'}.`;
@@ -343,7 +448,15 @@ document.addEventListener('click', async (event) => {
 
 document.addEventListener('change', async (event) => {
   const input = event.target;
-  if (!input || input.id !== 'import-input') return;
+  if (!input) return;
+
+  if (input.id === 'year-select') {
+    year = input.value;
+    render();
+    return;
+  }
+
+  if (input.id !== 'import-input') return;
 
   const file = input.files && input.files[0];
   if (!file) return;
@@ -373,6 +486,7 @@ document.addEventListener('change', async (event) => {
     name: file.name || 'backup.json',
     count: result.transactions.length,
     transactions: result.transactions,
+    creditLimit: result.creditLimit,
   };
   settings.message = '';
   settings.error = '';

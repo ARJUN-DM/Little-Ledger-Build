@@ -1,13 +1,14 @@
-import { normalizeList } from './store.js';
+import { accountLabel, normalizeList } from './store.js';
 import { todayISO } from './format.js';
 
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
-/** The saved document: enough to rebuild the ledger exactly. */
-export function buildBackup(list) {
+/** The saved document: enough to rebuild all three ledgers exactly. */
+export function buildBackup(list, { creditLimit = 0 } = {}) {
   return {
     v: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
+    creditLimit: Number(creditLimit) > 0 ? Number(creditLimit) : 0,
     transactions: list,
   };
 }
@@ -23,7 +24,8 @@ export function csvFilename(stamp = todayISO()) {
 /**
  * Reads a backup file. Accepts the versioned envelope and the bare array older
  * builds wrote; every row still goes through the store's normalizer, so a
- * malformed file yields nothing rather than half an import.
+ * malformed file yields nothing rather than half an import. Entries from files
+ * written before accounts existed land in Debit.
  */
 export function parseBackup(text) {
   let raw;
@@ -49,7 +51,13 @@ export function parseBackup(text) {
     };
   }
 
-  return { ok: true, transactions };
+  const limit = Number(raw && typeof raw === 'object' ? raw.creditLimit : 0);
+
+  return {
+    ok: true,
+    transactions,
+    creditLimit: Number.isFinite(limit) && limit > 0 ? limit : 0,
+  };
 }
 
 function csvCell(value) {
@@ -57,12 +65,13 @@ function csvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** date,type,category,amount,note — with a BOM so Excel reads it as UTF-8. */
+/** date,account,type,category,amount,note — with a BOM so Excel reads it as UTF-8. */
 export function toCSV(list) {
   const rows = [
-    ['Date', 'Type', 'Category', 'Amount', 'Note'],
+    ['Date', 'Account', 'Type', 'Category', 'Amount', 'Note'],
     ...list.map((item) => [
       item.date,
+      accountLabel(item.account),
       item.type,
       item.category,
       Number(item.amount).toFixed(2),

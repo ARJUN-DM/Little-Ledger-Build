@@ -1,6 +1,6 @@
 # Ledger — Accounts, Filters, Carry-forward Balance
 
-**Status:** plan only. Nothing in this document has been built yet. Build starts only after your approval.
+**Status:** built and verified locally. All six decisions in section 11 were answered, and sections 1–10 are implemented in `little-ledger/`. Not deployed — publishing needs a separate go-ahead.
 
 This document organises the whole set of ideas you described into a single spec, resolves the details, and lists what I will change. The last section lists everything I deliberately left out and the few small decisions I would like you to confirm.
 
@@ -306,12 +306,15 @@ Net                −3,200.00
 
 ---
 
-## 11. Left out on purpose, and small decisions to confirm
+## 11. Decisions confirmed — agreed scope
 
-These are **not** in the plan above. Tell me if any should be added; otherwise I will build exactly what is written.
+All six open points were answered before the build started. These are the answers now baked into the plan:
 
-1. **Reverse transfers.** Only Debit → Cash (withdraw) and Debit → Credit (bill) exist. There is no "Cash deposited to Debit" and no "pay credit bill from Cash". I suggest adding the Cash → Debit deposit later, if you ever actually deposit cash back. *(Proposed: leave out of this round.)*
-2. **Refunds on the Credit card.** Credit has Expense and Payment only. A merchant refund would need a third type. *(Proposed: leave out.)*
-3. **Renaming accounts**, setting a starting balance, or adding an opening-balance entry. Your existing Debit history is your starting point. *(Proposed: leave out; a "starting balance" entry can be recorded as an Income row today.)*
-4. **Year total vs month total wording.** With "All years" selected the Months footer is labelled "All years"; with a year selected it names the year. Say if you would rather hide the footer in the "All years" case.
-5. **Filter persistence within a session.** Filters survive tab switches inside the app and reset on relaunch. If you would rather they reset on every tab switch, say so.
+1. **Reverse transfers — out of scope.** Only Debit → Cash (withdrawn) and Debit → Credit (credit bill) move money. No Cash → Debit deposit and no bill paid from Cash in this round.
+2. **Credit refunds — out of scope.** Credit keeps two types: Expense and Payment. A merchant refund can be recorded as a Payment with a note.
+3. **Starting balance — out of scope.** No opening-balance field and no starting-balance entry type; an opening amount is recorded as an Income row.
+4. **Months footer on "All years" — shown.** The footer is always present: labelled "All years" when no year is chosen, otherwise labelled with the year.
+5. **Filter lifetime — the whole session.** A filter survives tab switches and resets only on relaunch, Reset, or an account switch.
+6. **Form account — fixed.** The Add/Edit form takes the account from the pinned switcher and shows it as a label; there is no second account picker inside the form.
+
+Still deliberately absent: account renaming, custom categories, and any account-level reset of history.

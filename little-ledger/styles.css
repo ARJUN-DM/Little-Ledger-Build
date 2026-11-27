@@ -1257,3 +1257,301 @@ button {
     border-radius: 18px;
   }
 }
+
+/* ------------------------------- accounts --------------------------------- */
+
+/* Pinned above the scrolling screen, so the account is always one tap away. */
+.accountbar {
+  position: relative;
+  z-index: 6;
+  flex: none;
+  padding: calc(10px + env(safe-area-inset-top)) 20px 10px;
+  background: var(--paper-hi);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.accountbar[hidden] {
+  display: none;
+}
+
+.accounts {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.account {
+  flex: 1;
+  padding: 9px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--num);
+  font-size: 10.5px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.account.is-active {
+  background: var(--ink);
+  color: var(--paper-hi);
+  font-weight: 700;
+}
+
+/* The switcher already clears the notch, so page headers need less air. */
+.ledger-head,
+.topbar {
+  padding-top: 12px;
+}
+
+/* -------------------------------- filters --------------------------------- */
+
+.filterbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 0;
+}
+
+.filter-btn {
+  flex: none;
+  padding: 9px 14px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--ink);
+  font-family: var(--num);
+  font-size: 11px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.filter-btn.is-active {
+  border-color: var(--vermilion);
+  background: var(--vermilion-tint);
+  color: var(--vermilion);
+  font-weight: 700;
+}
+
+.filter-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-family: var(--num);
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-clear {
+  flex: none;
+}
+
+.filter-hint {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.filter-links {
+  display: flex;
+  gap: 14px;
+}
+
+.filter-links .link {
+  font-size: 10px;
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--rule);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--vermilion);
+}
+
+.check span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* --------------------------- totals & balances ---------------------------- */
+
+.totals {
+  margin: 18px 0 6px;
+  padding: 12px 2px 4px;
+  border-top: 3px double var(--rule-strong);
+}
+
+.totals--empty {
+  opacity: 0.6;
+}
+
+.totals-label {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-family: var(--num);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.totals-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+
+.totals-row .split-value {
+  font-size: 16px;
+}
+
+.totals-net {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.totals-net .split-value {
+  font-size: 19px;
+}
+
+.balance-rows {
+  margin: 4px 0 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.balance-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.balance-rows dt {
+  color: var(--ink-soft);
+  font-family: var(--num);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.balance-rows dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.balance-rows .is-closing dd {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.month-card-balance {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 10.5px;
+}
+
+.month-card-balance span:last-child {
+  margin-left: auto;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.year-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.year-bar .field-label {
+  margin: 0;
+}
+
+.year-select {
+  flex: 1 1 auto;
+  padding: 10px 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--ink);
+  font-family: var(--num);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+/* ------------------------------ linked rows ------------------------------- */
+
+.entry-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 5px;
+  border: 1px solid var(--vermilion);
+  border-radius: 3px;
+  color: var(--vermilion);
+  font-family: var(--num);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+.linked-note {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 5px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.sheet-hint {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.limit-warn {
+  margin: 10px 0 0;
+  color: var(--vermilion);
+  font-size: 12px;
+}
+
+.limit-warn .link {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+}

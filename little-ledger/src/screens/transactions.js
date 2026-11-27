@@ -1,56 +1,54 @@
-import { summarize } from '../store.js';
-import { esc, entryRow } from '../ui.js';
-import { formatMoney, formatMonth, monthKeyOf } from '../format.js';
+import { accountLabel, summarize } from '../store.js';
+import { esc, entryRow, filterBar, summaryCards, totalsBlock } from '../ui.js';
+import {
+  applyFilters, filterCount, filterSummary, isFiltered, monthGroups,
+} from '../ledger.js';
+import { formatMoney, formatMonth } from '../format.js';
 
-export function renderTransactions(list) {
-  const { income, expense, balance } = summarize(list);
+/** One account's ledger: month groups, filter bar, and a total that always closes the list. */
+export function renderTransactions({ list, account = 'debit', filters }) {
+  const shown = applyFilters(list, filters);
+  const totals = summarize(list);
+  const active = isFiltered(filters);
 
-  const groups = [];
-  const byMonth = new Map();
-  list.forEach((item) => {
-    const key = monthKeyOf(item.date);
-    if (!byMonth.has(key)) {
-      const group = { key, items: [] };
-      byMonth.set(key, group);
-      groups.push(group);
-    }
-    byMonth.get(key).items.push(item);
-  });
+  const groups = monthGroups(shown);
 
   const body = groups.map((group) => {
-    const net = summarize(group.items).balance;
+    const net = summarize(group.items);
+    const movement = account === 'credit' ? net.owed : net.balance;
     return `
       <div class="month-head">
         <h2>${esc(formatMonth(group.key))}</h2>
-        <span class="month-net">${net > 0 ? '+' : net < 0 ? '\u2212' : ''}${formatMoney(net)}</span>
+        <span class="month-net">${movement > 0 ? '+' : movement < 0 ? '\u2212' : ''}${formatMoney(movement)}</span>
       </div>
       <ul class="entries">${group.items.map(entryRow).join('')}</ul>
     `;
   }).join('');
 
+  const label = active
+    ? `${filterSummary(filters, account)} \u00b7 ${shown.length} of ${list.length}`
+    : `${list.length} ${list.length === 1 ? 'entry' : 'entries'}`;
+
   return `
     <header class="ledger-head">
-      <p class="eyebrow">Cash book &middot; ${list.length} ${list.length === 1 ? 'entry' : 'entries'}</p>
+      <p class="eyebrow">Cash book &middot; ${esc(accountLabel(account))} &middot; ${list.length} ${list.length === 1 ? 'entry' : 'entries'}</p>
       <h1 class="ledger-title">Transactions</h1>
     </header>
 
+    ${filterBar({
+      count: filterCount(filters),
+      summary: filterSummary(filters, account),
+      active,
+    })}
+
     <section class="summary">
-      <div class="summary-item">
-        <span class="split-label">Income</span>
-        <span class="split-value num">${income ? '+' : ''}${formatMoney(income)}</span>
-      </div>
-      <div class="summary-item">
-        <span class="split-label">Expenses</span>
-        <span class="split-value num">${expense ? '\u2212' : ''}${formatMoney(expense)}</span>
-      </div>
-      <div class="summary-item">
-        <span class="split-label">Net</span>
-        <span class="split-value num">${balance < 0 ? '\u2212' : ''}${formatMoney(balance)}</span>
-      </div>
+      ${summaryCards(totals, account)}
     </section>
 
     <button type="button" class="btn btn-primary btn-block" data-action="add">Add transaction</button>
 
-    ${body || '<p class="empty">No entries yet. Record your first transaction to open the ledger.</p>'}
+    ${body || '<p class="empty">No entries match. Clear the filter, or record a new transaction.</p>'}
+
+    ${totalsBlock(shown, { account, label: label, empty: shown.length === 0 })}
   `;
 }
