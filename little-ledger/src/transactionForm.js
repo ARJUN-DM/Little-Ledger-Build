@@ -244,6 +244,7 @@ export function openSheet({ mode = 'create', transaction = null, account = 'debi
   };
 
   paint();
+  document.dispatchEvent(new CustomEvent('sheet-visibility', { detail: { open: true } }));
   requestAnimationFrame(() => {
     overlayEl.classList.add('is-open');
     sheetEl.classList.add('is-open');
@@ -259,4 +260,5 @@ export function closeSheet() {
   overlayEl.classList.remove('is-open');
   sheetEl.classList.remove('is-open');
   document.body.classList.remove('sheet-open');
+  document.dispatchEvent(new CustomEvent('sheet-visibility', { detail: { open: false } }));
 }

@@ -13,17 +13,17 @@ function balanceCard(account, allTotals, monthTotals, creditLimit) {
       <section class="balance-card">
         <span class="stamp">Credit</span>
         <p class="eyebrow">${owed < 0 ? 'In credit' : 'Amount owed'}</p>
-        <p class="balance-value num">${owed < 0 ? '\\u2212' : ''}${formatMoney(owed)}</p>
+        <p class="balance-value num">${owed < 0 ? '\u2212' : ''}${formatMoney(owed)}</p>
         <div class="balance-split">
           <div>
             <span class="split-label">${creditLimit ? 'Limit remaining' : 'Limit'}</span>
             <span class="split-value num">${creditLimit
-              ? `${over ? '\\u2212' : ''}${formatMoney(remaining)}`
+              ? `${over ? '\u2212' : ''}${formatMoney(remaining)}`
               : 'Not set'}</span>
           </div>
           <div>
             <span class="split-label">This month spent</span>
-            <span class="split-value num">${monthTotals.expense ? '\\u2212' : ''}${formatMoney(monthTotals.expense)}</span>
+            <span class="split-value num">${monthTotals.expense ? '\u2212' : ''}${formatMoney(monthTotals.expense)}</span>
           </div>
         </div>
         ${over ? `<p class="limit-warn">Over the limit by ${formatMoney(owed - creditLimit)}.</p>` : ''}
@@ -36,7 +36,7 @@ function balanceCard(account, allTotals, monthTotals, creditLimit) {
     <section class="balance-card">
       <span class="stamp">Balance</span>
       <p class="eyebrow">All time &middot; ${esc(accountLabel(account))}</p>
-      <p class="balance-value num">${allTotals.balance < 0 ? '\\u2212' : ''}${formatMoney(allTotals.balance)}</p>
+      <p class="balance-value num">${allTotals.balance < 0 ? '\u2212' : ''}${formatMoney(allTotals.balance)}</p>
       <div class="balance-split">
         <div>
           <span class="split-label">Income &middot; this month</span>
@@ -44,7 +44,7 @@ function balanceCard(account, allTotals, monthTotals, creditLimit) {
         </div>
         <div>
           <span class="split-label">Expenses &middot; this month</span>
-          <span class="split-value num">${monthTotals.expense ? '\\u2212' : ''}${formatMoney(monthTotals.expense)}</span>
+          <span class="split-value num">${monthTotals.expense ? '\u2212' : ''}${formatMoney(monthTotals.expense)}</span>
         </div>
       </div>
     </section>
@@ -92,9 +92,6 @@ export function renderHome(list, {
       </ul>
     </section>
 
-    <div class="home-foot">
-      <p class="eyebrow page-note">${monthEntries.length} ${monthEntries.length === 1 ? 'entry' : 'entries'} this month</p>
-      <button type="button" class="link" data-action="open-settings">Settings</button>
-    </div>
+    <p class="eyebrow page-note">${monthEntries.length} ${monthEntries.length === 1 ? 'entry' : 'entries'} this month</p>
   `;
 }

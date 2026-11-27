@@ -1,9 +1,8 @@
-import { summarize } from '../store.js';
-import { esc, summaryCards } from '../ui.js';
+import { esc } from '../ui.js';
 import { ledgerTitle } from './welcome.js';
 
 /** Backup, CSV export and restore — the screen that makes the ledger portable. */
-export function renderSettings(list, {
+export function renderSettings({
   pending = null,
   message = '',
   error = '',
@@ -11,24 +10,15 @@ export function renderSettings(list, {
   nameError = '',
   creditLimit = 0,
 } = {}) {
-  const totals = summarize(list);
-
   return `
-    <header class="topbar">
-      <button type="button" class="link-back" data-action="settings-back">&lsaquo; Ledger</button>
-      <span class="eyebrow">Ledger</span>
+    <header class="ledger-head">
+      <p class="eyebrow">Cash book</p>
+      <h1 class="ledger-title">Settings</h1>
     </header>
-
-    <p class="eyebrow">Cash book</p>
-    <h1 class="ledger-title">Settings</h1>
-
-    <section class="summary">
-      ${summaryCards(totals, 'debit')}
-    </section>
 
     <p class="settings-note">
       Entries live in this browser, on this device. Clearing site data or uninstalling the app erases them,
-      so keep a backup somewhere else. Totals above cover every account.
+      so keep a backup somewhere else.
     </p>
 
     <div class="settings-group">

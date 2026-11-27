@@ -601,15 +601,23 @@ button {
 
 .tab {
   flex: 1;
-  padding: 13px 4px 15px;
+  min-width: 0;
+  padding: 13px 2px 15px;
   border: 0;
   background: none;
   color: var(--ink-soft);
   font-family: var(--num);
-  font-size: 10.5px;
-  letter-spacing: 1.8px;
+  font-size: 10px;
+  letter-spacing: 1.3px;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+@media (max-width: 380px) {
+  .tab {
+    font-size: 9px;
+    letter-spacing: 0.8px;
+  }
 }
 
 .tab.is-active {
@@ -804,17 +812,6 @@ button {
 }
 
 /* ------------------------------ home extras ------------------------------- */
-
-.home-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 22px;
-}
-
-.home-foot .page-note {
-  margin: 0;
-}
 
 .device-note {
   position: relative;
@@ -1246,6 +1243,15 @@ button {
   .cover-sheet {
     animation: none;
   }
+
+  .account-thumb,
+  .account {
+    transition: none;
+  }
+
+  .accountbar {
+    transition: none;
+  }
 }
 
 @media (min-width: 640px) {
@@ -1266,15 +1272,31 @@ button {
   z-index: 6;
   flex: none;
   padding: calc(10px + env(safe-area-inset-top)) 20px 10px;
+  overflow: hidden;
   background: var(--paper-hi);
   border-bottom: 1px solid var(--rule-strong);
+  transition:
+    height 0.34s cubic-bezier(0.22, 0.7, 0.18, 1),
+    padding 0.34s cubic-bezier(0.22, 0.7, 0.18, 1),
+    opacity 0.2s ease,
+    border-bottom-color 0.24s ease;
 }
 
 .accountbar[hidden] {
   display: none;
 }
 
+/* Collapsed on screens that do not choose an account; height is set inline. */
+.accountbar.is-collapsed {
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-bottom-color: transparent;
+}
+
 .accounts {
+  position: relative;
   display: flex;
   gap: 4px;
   padding: 4px;
@@ -1283,7 +1305,30 @@ button {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* The dark selection pill, gliding between accounts instead of jumping. */
+.account-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 16px) / 3);
+  border-radius: 999px;
+  background: var(--ink);
+  pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.22, 0.7, 0.18, 1);
+}
+
+.accounts[data-index="1"] .account-thumb {
+  transform: translateX(calc(100% + 4px));
+}
+
+.accounts[data-index="2"] .account-thumb {
+  transform: translateX(calc(200% + 8px));
+}
+
 .account {
+  position: relative;
+  z-index: 1;
   flex: 1;
   padding: 9px 6px;
   border: 0;
@@ -1295,10 +1340,10 @@ button {
   letter-spacing: 1.8px;
   text-transform: uppercase;
   cursor: pointer;
+  transition: color 0.22s ease;
 }
 
 .account.is-active {
-  background: var(--ink);
   color: var(--paper-hi);
   font-weight: 700;
 }

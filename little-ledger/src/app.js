@@ -20,6 +20,7 @@ const TABS = [
   { id: 'home', label: 'Home' },
   { id: 'transactions', label: 'Transactions' },
   { id: 'months', label: 'Months' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 const NAME_KEY = 'name';
@@ -89,28 +90,83 @@ function tabsHTML(active) {
   `).join('');
 }
 
-/** The pinned Debit / Credit / Cash switcher, on every screen that has a ledger. */
-function renderAccounts() {
-  const hidden = route.name === 'welcome' || route.name === 'install';
-  accountsEl.hidden = hidden;
-  if (hidden) {
-    accountsEl.innerHTML = '';
+/** Set while the transaction sheet covers the ledger. */
+let sheetOpen = false;
+/** Tracks the switcher so it only animates when it actually changes. */
+let accountsShown = null;
+let accountsTimer = 0;
+
+/** The cover, a single transaction and Settings do not need the account switcher. */
+function accountsWanted() {
+  if (route.name === 'welcome' || route.name === 'install') return false;
+  if (route.name === 'detail' || route.name === 'settings') return false;
+  return !sheetOpen;
+}
+
+/**
+ * Slides the switcher in and out instead of letting it snap. The open height is
+ * measured, then animated to zero, so the screen below grows and shrinks with it.
+ */
+function setAccountsShown(show) {
+  if (accountsShown === show) return;
+  const first = accountsShown === null;
+  accountsShown = show;
+  window.clearTimeout(accountsTimer);
+
+  if (show) {
+    accountsEl.classList.remove('is-collapsed');
+    accountsEl.style.height = 'auto';
+    const openHeight = accountsEl.offsetHeight;
+    if (first) {
+      accountsEl.style.height = '';
+      return;
+    }
+    accountsEl.style.height = '0px';
+    void accountsEl.offsetHeight;
+    accountsEl.style.height = `${openHeight}px`;
+    accountsTimer = window.setTimeout(() => {
+      accountsEl.style.height = '';
+    }, 360);
     return;
   }
 
-  accountsEl.innerHTML = `
-    <div class="accounts" role="group" aria-label="Account">
-      ${ACCOUNT_IDS.map((id) => `
-        <button
-          type="button"
-          class="account${id === account ? ' is-active' : ''}"
-          data-action="account"
-          data-account="${id}"
-          aria-pressed="${id === account ? 'true' : 'false'}"
-        >${accountLabel(id)}</button>
-      `).join('')}
-    </div>
-  `;
+  accountsEl.style.height = `${accountsEl.offsetHeight}px`;
+  void accountsEl.offsetHeight;
+  accountsEl.classList.add('is-collapsed');
+  accountsEl.style.height = '0px';
+}
+
+/** The pinned Debit / Credit / Cash switcher, on every screen that has a ledger. */
+function renderAccounts() {
+  // Built once, then only its state is updated, so the dark pill slides
+  // instead of snapping back when the bar is re-rendered.
+  if (!accountsEl.firstElementChild) {
+    accountsEl.hidden = false;
+    accountsEl.innerHTML = `
+      <div class="accounts" role="group" aria-label="Account">
+        <span class="account-thumb" aria-hidden="true"></span>
+        ${ACCOUNT_IDS.map((id) => `
+          <button type="button" class="account" data-action="account" data-account="${id}">${accountLabel(id)}</button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  const group = accountsEl.firstElementChild;
+  group.dataset.index = String(ACCOUNT_IDS.indexOf(account));
+  for (const button of group.querySelectorAll('.account')) {
+    const active = button.dataset.account === account;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  setAccountsShown(accountsWanted());
+}
+
+/** Settings is a tab, but Home links here too, so both share one entry point. */
+function openSettings() {
+  settings = { pending: null, message: '', error: '', nameDraft: name, nameError: '' };
+  go({ name: 'settings' });
 }
 
 function filterKey() {
@@ -150,11 +206,12 @@ function render() {
     });
     tabbarEl.hidden = true;
   } else if (route.name === 'settings') {
-    screenEl.innerHTML = renderSettings(store.all(), {
+    screenEl.innerHTML = renderSettings({
       ...settings,
       creditLimit: store.creditLimit(),
     });
-    tabbarEl.hidden = true;
+    tabbarEl.hidden = false;
+    tabbarEl.innerHTML = tabsHTML('settings');
   } else {
     screenEl.innerHTML = route.name === 'home'
       ? renderHome(list, {
@@ -307,7 +364,9 @@ document.addEventListener('click', async (event) => {
 
   switch (target.dataset.action) {
     case 'tab':
-      if (route.name !== 'detail' && route.name !== 'month') go({ name: target.dataset.tab });
+      if (route.name === 'detail' || route.name === 'month') break;
+      if (target.dataset.tab === 'settings') openSettings();
+      else go({ name: target.dataset.tab });
       break;
     case 'account': {
       const next = target.dataset.account;
@@ -357,12 +416,7 @@ document.addEventListener('click', async (event) => {
       go({ name: 'months' });
       break;
     case 'open-settings':
-      settings = { pending: null, message: '', error: '', nameDraft: name, nameError: '' };
-      go({ name: 'settings', back: route.name === 'detail' || route.name === 'month' ? route.back : route });
-      history.pushState({ view: 'settings' }, '');
-      break;
-    case 'settings-back':
-      go(route.back || { name: 'home' });
+      openSettings();
       break;
     case 'welcome-save':
       saveName();
@@ -535,11 +589,6 @@ document.addEventListener('keydown', (event) => {
   go({ name: 'detail', id: row.dataset.id, back: route.name === 'detail' ? route.back : route });
 });
 
-/** The phone's back button leaves Settings for Home instead of closing the app. */
-window.addEventListener('popstate', () => {
-  if (route.name === 'settings') go({ name: 'home' });
-});
-
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   deferredInstall = event;
@@ -555,6 +604,12 @@ window.addEventListener('appinstalled', () => {
   // Storage survives an uninstall on many phones, so mark this install as new.
   Storage.set(FRESH_KEY, true);
   if (route.name === 'install') render();
+});
+
+/* The sheet covers the ledger, so the switcher steps aside while it is open. */
+document.addEventListener('sheet-visibility', (event) => {
+  sheetOpen = Boolean(event.detail && event.detail.open);
+  renderAccounts();
 });
 
 store.subscribe(render);
