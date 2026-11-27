@@ -113,20 +113,30 @@ function setAccountsShown(show) {
   accountsShown = show;
   window.clearTimeout(accountsTimer);
 
+  // The very first paint jumps straight to its state instead of sliding in.
+  if (first) {
+    accountsEl.style.height = '';
+    accountsEl.classList.toggle('is-collapsed', !show);
+    return;
+  }
+
   if (show) {
-    accountsEl.classList.remove('is-collapsed');
+    // Measure while still collapsed, then start from zero and grow in one go, so
+    // height is the only thing moving and nothing can snap halfway through.
     accountsEl.style.height = 'auto';
     const openHeight = accountsEl.offsetHeight;
-    if (first) {
+    if (openHeight <= 0) {
       accountsEl.style.height = '';
+      accountsEl.classList.remove('is-collapsed');
       return;
     }
     accountsEl.style.height = '0px';
     void accountsEl.offsetHeight;
+    accountsEl.classList.remove('is-collapsed');
     accountsEl.style.height = `${openHeight}px`;
     accountsTimer = window.setTimeout(() => {
       accountsEl.style.height = '';
-    }, 360);
+    }, 380);
     return;
   }
 
@@ -143,16 +153,18 @@ function renderAccounts() {
   if (!accountsEl.firstElementChild) {
     accountsEl.hidden = false;
     accountsEl.innerHTML = `
-      <div class="accounts" role="group" aria-label="Account">
-        <span class="account-thumb" aria-hidden="true"></span>
-        ${ACCOUNT_IDS.map((id) => `
-          <button type="button" class="account" data-action="account" data-account="${id}">${accountLabel(id)}</button>
-        `).join('')}
+      <div class="accountbar-inner">
+        <div class="accounts" role="group" aria-label="Account">
+          <span class="account-thumb" aria-hidden="true"></span>
+          ${ACCOUNT_IDS.map((id) => `
+            <button type="button" class="account" data-action="account" data-account="${id}">${accountLabel(id)}</button>
+          `).join('')}
+        </div>
       </div>
     `;
   }
 
-  const group = accountsEl.firstElementChild;
+  const group = accountsEl.querySelector('.accounts');
   group.dataset.index = String(ACCOUNT_IDS.indexOf(account));
   for (const button of group.querySelectorAll('.account')) {
     const active = button.dataset.account === account;
